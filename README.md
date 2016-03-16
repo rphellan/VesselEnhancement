@@ -24,6 +24,8 @@ PyQt version 4.11.2 to link python and Qt
 
 Python 2.7.9 
 
+Pyuic4 to convert Qt windows to python code.
+
 Qt version 4.8.6 for GUI
 
 Vtk version 5.8.0 for Visualization algorithms
