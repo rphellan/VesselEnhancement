@@ -73,6 +73,9 @@ class MyMainWindow(QtGui.QMainWindow):
     self.ui.vsOriginalLevel.valueChanged.connect(self.moveOriginalLevel)    
     
 #Enhanced brain side       
+    #Buttons for 3d view with intersections
+    self.ui.b3dColored.clicked.connect(self.show3dColored)
+
     #Buttons to toggle segmentations
     self.ui.chEnhancedGold.stateChanged.connect(self.toggleEnhancedGold)
     self.ui.chEnhancedSegm.stateChanged.connect(self.toggleEnhancedSegm)
@@ -584,61 +587,114 @@ class MyMainWindow(QtGui.QMainWindow):
         self.enhancedSagBrainWidgetWindowInteractor.Render()         
         
   def show3dGold (self):
-        #Show 3d view of the gold segmentation
-    isoGold = vtk.vtkMarchingCubes()
-    isoGold.SetInput(self.segmGoldData)
-    isoGold.SetValue(0, 1)
-    isoGold.Update()
     
-    decimatorGold = vtk.vtkDecimatePro()
-    decimatorGold.SetInputConnection(isoGold.GetOutputPort())
-    decimatorGold.SetTargetReduction(0.50)
-    decimatorGold.Update()
+    ren = vtk.vtkRenderer()
+    
+        #Show 3d view of the gold segmentation
+    if self.ui.chOriginalGold.isChecked():
+      voiGoldOrig = vtk.vtkExtractVOI()
+      voiGoldOrig.SetInput(self.segmGoldData)
+      voiGoldOrig.SetVOI(self.segmGoldData.GetExtent())    
+      voiGoldOrig.Update()
+      self.voiGoldOrig = voiGoldOrig           
         
-    mapperGold = vtk.vtkPolyDataMapper()
-    mapperGold.SetInputConnection(decimatorGold.GetOutputPort())      
-    mapperGold.ScalarVisibilityOff()
-    mapperGold.ImmediateModeRenderingOn()    
+      isoGold = vtk.vtkMarchingCubes()
+      isoGold.SetInput(voiGoldOrig.GetOutput())
+      isoGold.SetValue(0, 1)
+      isoGold.Update()
+      self.isoGold = isoGold    
+    
+      decimatorGold = vtk.vtkDecimatePro()
+      decimatorGold.SetInputConnection(isoGold.GetOutputPort())
+      decimatorGold.SetTargetReduction(0.20)
+      decimatorGold.Update()
+        
+      mapperGold = vtk.vtkPolyDataMapper()
+      mapperGold.SetInputConnection(decimatorGold.GetOutputPort())      
+      mapperGold.ScalarVisibilityOff()
+      mapperGold.ImmediateModeRenderingOn()    
 
-    actorGold = vtk.vtkActor()
-    actorGold.SetMapper(mapperGold)  
-    actorGold.GetProperty().SetColor([0.0, 1.0, 0.0])  
+      actorGold = vtk.vtkActor()
+      actorGold.SetMapper(mapperGold)  
+      actorGold.GetProperty().SetColor([0.0, 1.0, 0.0])  
+      
+      ren.AddActor(actorGold)
     
         #Show 3d view of the segmentation
-    isoSeg = vtk.vtkMarchingCubes()
-    isoSeg.SetInput(self.segmData)
-    isoSeg.SetValue(0, 1)
-    isoSeg.Update()
-    
-    decimatorSeg = vtk.vtkDecimatePro()
-    decimatorSeg.SetInputConnection(isoSeg.GetOutputPort())
-    decimatorSeg.SetTargetReduction(0.50)
-    decimatorSeg.Update()
-        
-    mapperSeg = vtk.vtkPolyDataMapper()
-    mapperSeg.SetInputConnection(decimatorSeg.GetOutputPort())      
-    mapperSeg.ScalarVisibilityOff()
-    mapperSeg.ImmediateModeRenderingOn()    
-
-    actorSeg = vtk.vtkActor()
-    actorSeg.SetMapper(mapperSeg)  
-    actorSeg.GetProperty().SetColor([1.0, 0.0, 0.0])    
-    
-    ren = vtk.vtkRenderer()       
-   
-    if self.ui.chOriginalGold.isChecked():
-      ren.AddActor(actorGold)
-      
     if self.ui.chOriginalSegm.isChecked():
+      
+      voiSegOrig = vtk.vtkExtractVOI()
+      voiSegOrig.SetInput(self.segmData)
+      voiSegOrig.SetVOI(self.segmData.GetExtent())    
+      voiSegOrig.Update()    
+      self.voiSegOrig = voiSegOrig      
+      
+      isoSeg = vtk.vtkMarchingCubes()
+      isoSeg.SetInput(voiSegOrig.GetOutput())
+      isoSeg.SetValue(0, 1)
+      isoSeg.Update()
+    
+      decimatorSeg = vtk.vtkDecimatePro()
+      decimatorSeg.SetInputConnection(isoSeg.GetOutputPort())
+      decimatorSeg.SetTargetReduction(0.20)
+      decimatorSeg.Update()
+        
+      mapperSeg = vtk.vtkPolyDataMapper()
+      mapperSeg.SetInputConnection(decimatorSeg.GetOutputPort())      
+      mapperSeg.ScalarVisibilityOff()
+      mapperSeg.ImmediateModeRenderingOn()    
+
+      actorSeg = vtk.vtkActor()
+      actorSeg.SetMapper(mapperSeg)  
+      actorSeg.GetProperty().SetColor([1.0, 0.0, 0.0])    
+
       ren.AddActor(actorSeg)
 
     renWin = vtk.vtkRenderWindow()      
+    
     renWin.AddRenderer(ren)
     
     renWin.SetSize(500, 500)
 
     iren = vtk.vtkRenderWindowInteractor()
-    iren.SetRenderWindow(renWin)
+    iren.SetRenderWindow(renWin)    
+    
+    # Create a box widget
+    
+    #Extract selected region    
+    
+    if (self.ui.chOriginalGold.isChecked() or self.ui.chOriginalSegm.isChecked()):
+      if self.ui.chOriginalGold.isChecked():
+        voiOrig = self.segmGoldData
+      if self.ui.chOriginalSegm.isChecked():
+        voiOrig = self.segmData       
+      boxWidget3d = vtk.vtkBoxWidget()
+      boxWidget3d.SetInteractor(iren)
+      boxWidget3d.SetPlaceFactor(1.0)
+      boxWidget3d.SetInput(voiOrig)
+      boxWidget3d.PlaceWidget()
+      boxWidget3d.RotationEnabledOff()
+      boxWidget3d.On()
+      self.voiOrig = voiOrig
+      
+      def myCallback(widget, event_string):
+        pd = vtk.vtkPolyData()
+        boxWidget3d.GetPolyData(pd)
+        pointBegin = [0.1, 0.1, 0.1]   
+        pointEnd = [0.1, 0.1, 0.1]
+        pd.GetPoint(0,pointBegin)   
+        pd.GetPoint(6,pointEnd)           
+        spac = self.segmData.GetSpacing()
+        
+        if self.ui.chOriginalGold.isChecked():  	  	  	  
+          self.voiGoldOrig.SetVOI(int(pointBegin[0] / spac[0]), int(pointEnd[0] / spac[0]), int(pointBegin[1] / spac[1]), int(pointEnd[1] / spac[1]), int(pointBegin[2] / spac[2]), int(pointEnd[2]/ spac[2]))                        
+        
+        if self.ui.chOriginalSegm.isChecked():  	  	  	  
+          self.voiSegOrig.SetVOI(int(pointBegin[0] / spac[0]), int(pointEnd[0] / spac[0]), int(pointBegin[1] / spac[1]), int(pointEnd[1] / spac[1]), int(pointBegin[2] / spac[2]), int(pointEnd[2]/ spac[2]))                        
+          
+        ren.Render()
+        
+      boxWidget3d.AddObserver("EndInteractionEvent", myCallback) 
     
     iren.Initialize()
     renWin.Render()
@@ -647,8 +703,13 @@ class MyMainWindow(QtGui.QMainWindow):
   def openSegmFile (self):
     fileName = QtGui.QFileDialog.getOpenFileName(self,'Open file','/home/rphellan/UofC/Datasets/VesselGroundTruthMasks')          
     segmData = self.openNiftiiImage(fileName)
+    
+    cast = vtk.vtkImageCast()
+    cast.SetInput(segmData)
+    cast.SetOutputScalarType(self.segmGoldData.GetScalarType())
+    cast.Update()
         
-    self.segmData = segmData    
+    self.segmData = cast.GetOutput()    
         
     lookupTableSeg = vtk.vtkLookupTable()    
     self.lookupTableSeg = lookupTableSeg
@@ -1091,9 +1152,13 @@ class MyMainWindow(QtGui.QMainWindow):
       intersection = 0.0
       total = 0.0
       c_double_p = ctypes.POINTER(ctypes.c_ubyte)
+      totalIter = originalSeg.GetDimensions()[0] * originalSeg.GetDimensions()[1] * originalSeg.GetDimensions()[2]         
+      count = 0
+      
       for x in range(0, originalSeg.GetDimensions()[0]):
         for y in range(0, originalSeg.GetDimensions()[1]):
           for z in range(0, originalSeg.GetDimensions()[2]):
+	    count = count + 1
 	    if ( (originalSeg.GetScalarComponentAsFloat(x,y,z,0) != 0.0) and (newSeg.GetScalarComponentAsFloat(x,y,z,0) != 0.0) ):	      
 	      intersection = intersection + 1
 	      total = total + 2 
@@ -1101,8 +1166,128 @@ class MyMainWindow(QtGui.QMainWindow):
 	      total = total + 1          	      
       	    if ( (originalSeg.GetScalarComponentAsFloat(x,y,z,0) != 0.0) and (newSeg.GetScalarComponentAsFloat(x,y,z,0) == 0.0) ):	      
 	      total = total + 1
+	    self.ui.pbMetrics.setValue( int(count*100 / totalIter) )
 
-      self.ui.lDiceCoefficient.setText(str(round(200 * intersection / total, 2)))          
+      self.ui.pbMetrics.setValue(0)
+      self.ui.lDiceCoefficient.setText(str(round(200 * intersection / total, 2)))     
+      
+  def show3dColored (self):
+    
+    ren = vtk.vtkRenderer()
+    
+        #Show 3d view of the gold segmentation
+    if self.ui.chOriginalGold.isChecked() and self.ui.chOriginalSegm.isChecked():
+      #Intersection
+      if self.ui.chEnhancedIntersect.isChecked():
+        intersection = vtk.vtkImageLogic()
+        intersection.SetInput1(self.segmGoldData)
+        intersection.SetInput2(self.segmData)
+        intersection.SetOperationToAnd()
+        intersection.Update()     
+      
+        isoIntersection = vtk.vtkMarchingCubes()
+        isoIntersection.SetInput(intersection.GetOutput())
+        isoIntersection.SetValue(0, 1)
+        isoIntersection.Update()    
+    
+        decimatorIntersection = vtk.vtkDecimatePro()
+        decimatorIntersection.SetInputConnection(isoIntersection.GetOutputPort())
+        decimatorIntersection.SetTargetReduction(0.20)
+        decimatorIntersection.Update()
+        
+        mapperIntersection = vtk.vtkPolyDataMapper()
+        mapperIntersection.SetInputConnection(decimatorIntersection.GetOutputPort())      
+        mapperIntersection.ScalarVisibilityOff()
+        mapperIntersection.ImmediateModeRenderingOn()    
+
+        actorIntersection = vtk.vtkActor()
+        actorIntersection.SetMapper(mapperIntersection)  
+        actorIntersection.GetProperty().SetColor([0.0, 0.0, 1.0])  
+      
+        ren.AddActor(actorIntersection)          
+      
+      #Only gold segmentation
+      if self.ui.chEnhancedOnlyGold.isChecked():
+        xorFilter1 = vtk.vtkImageLogic()
+        xorFilter1.SetInput1(self.segmGoldData)
+        xorFilter1.SetInput2(self.segmData)
+        xorFilter1.SetOperationToXor()
+        xorFilter1.Update()     
+      
+        onlyGold = vtk.vtkImageLogic()
+        onlyGold.SetInput1(xorFilter1.GetOutput())
+        onlyGold.SetInput2(self.segmGoldData)
+        onlyGold.SetOperationToAnd()
+        onlyGold.Update() 
+      
+        isoOnlyGold = vtk.vtkMarchingCubes()
+        isoOnlyGold.SetInput(onlyGold.GetOutput())
+        isoOnlyGold.SetValue(0, 1)
+        isoOnlyGold.Update()    
+    
+        decimatorOnlyGold = vtk.vtkDecimatePro()
+        decimatorOnlyGold.SetInputConnection(isoOnlyGold.GetOutputPort())
+        decimatorOnlyGold.SetTargetReduction(0.20)
+        decimatorOnlyGold.Update()
+        
+        mapperOnlyGold = vtk.vtkPolyDataMapper()
+        mapperOnlyGold.SetInputConnection(decimatorOnlyGold.GetOutputPort())      
+        mapperOnlyGold.ScalarVisibilityOff()
+        mapperOnlyGold.ImmediateModeRenderingOn()    
+
+        actorOnlyGold = vtk.vtkActor()
+        actorOnlyGold.SetMapper(mapperOnlyGold)  
+        actorOnlyGold.GetProperty().SetColor([0.0, 1.0, 0.0])  
+      
+        ren.AddActor(actorOnlyGold)   
+
+      #Only segmentation
+      if self.ui.chEnhancedOnlySeg.isChecked():
+        xorFilter2 = vtk.vtkImageLogic()
+        xorFilter2.SetInput1(self.segmGoldData)
+        xorFilter2.SetInput2(self.segmData)
+        xorFilter2.SetOperationToXor()
+        xorFilter2.Update()     
+      
+        onlySeg = vtk.vtkImageLogic()
+        onlySeg.SetInput1(xorFilter2.GetOutput())
+        onlySeg.SetInput2(self.segmData)
+        onlySeg.SetOperationToAnd()
+        onlySeg.Update() 
+      
+        isoOnlySeg = vtk.vtkMarchingCubes()
+        isoOnlySeg.SetInput(onlySeg.GetOutput())
+        isoOnlySeg.SetValue(0, 1)
+        isoOnlySeg.Update()    
+    
+        decimatorOnlySeg = vtk.vtkDecimatePro()
+        decimatorOnlySeg.SetInputConnection(isoOnlySeg.GetOutputPort())
+        decimatorOnlySeg.SetTargetReduction(0.20)
+        decimatorOnlySeg.Update()
+        
+        mapperOnlySeg = vtk.vtkPolyDataMapper()
+        mapperOnlySeg.SetInputConnection(decimatorOnlySeg.GetOutputPort())      
+        mapperOnlySeg.ScalarVisibilityOff()
+        mapperOnlySeg.ImmediateModeRenderingOn()    
+
+        actorOnlySeg = vtk.vtkActor()
+        actorOnlySeg.SetMapper(mapperOnlySeg)  
+        actorOnlySeg.GetProperty().SetColor([1.0, 0.0, 0.0])  
+      
+        ren.AddActor(actorOnlySeg)   
+
+    renWin = vtk.vtkRenderWindow()      
+    
+    renWin.AddRenderer(ren)
+    
+    renWin.SetSize(500, 500)
+
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(renWin)          
+    
+    iren.Initialize()
+    renWin.Render()
+    iren.Start()      
 
 #The python interpreter assigns the name main to this module when this program is being executed, 
 #but not included into another one
