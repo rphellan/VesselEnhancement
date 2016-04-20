@@ -1,12 +1,11 @@
 import sys
 import vtk
-import itk
 import numpy
 import nibabel
-import ctypes
 from PyQt4 import QtCore, QtGui
 from vtk.qt4.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from MainWindow import Ui_uMainWindow
+import ctypes
 
 class MyMainWindow(QtGui.QMainWindow):
   def __init__(self,parent=None):
