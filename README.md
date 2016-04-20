@@ -29,3 +29,9 @@ Pyuic4 to convert Qt windows to python code.
 Qt version 4.8.6 for GUI
 
 Vtk version 5.8.0 for Visualization algorithms
+
+## Extended description
+
+You can find an extended description of this software in the pdf files included with the code. There is a paper, a presentation with slides, and a video.
+
+
